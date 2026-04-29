@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ type ProfileType = "empresa" | "estudante";
 
 const Signup = () => {
   const navigate = useNavigate();
+  const { signUp } = useAuth();
   const [profileType, setProfileType] = useState<ProfileType>("estudante");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,7 +26,7 @@ const Signup = () => {
     if (!email.trim()) e.email = "E-mail é obrigatório";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "E-mail inválido";
     if (!password) e.password = "Senha é obrigatória";
-    else if (password.length < 8) e.password = "A senha deve ter no mínimo 8 caracteres";
+    else if (password.length < 6) e.password = "Senha deve ter pelo menos 6 caracteres";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -35,28 +36,17 @@ const Signup = () => {
     if (!validate()) return;
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, profile_type: profileType },
-        emailRedirectTo: window.location.origin,
-      },
-    });
+    const { error } = await signUp(email, password, name, profileType);
 
     setLoading(false);
 
     if (error) {
-      if (error.message.includes("already registered") || error.message.includes("already been registered")) {
-        toast.error("Este e-mail já está cadastrado.");
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error);
       return;
     }
 
-    toast.success("Cadastro realizado com sucesso! Verifique seu e-mail para confirmar.");
-    navigate("/login");
+    toast.success("Cadastro realizado com sucesso!");
+    navigate("/");
   };
 
   const tabs: { value: ProfileType; label: string; icon: React.ReactNode }[] = [
@@ -75,7 +65,6 @@ const Signup = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Profile type tabs */}
             <div className="flex rounded-lg bg-muted p-1 gap-1">
               {tabs.map((tab) => (
                 <button
@@ -124,7 +113,7 @@ const Signup = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="Mínimo 8 caracteres"
+                placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={errors.password ? "border-destructive" : ""}

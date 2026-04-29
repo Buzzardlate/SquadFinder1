@@ -1,21 +1,20 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, GraduationCap, LogOut, Loader2 } from "lucide-react";
+import ProfileEditor from "@/components/ProfileEditor";
 
 interface Profile {
   name: string;
-  profile_type: "empresa" | "estudante";
+  profileType: "empresa" | "estudante";
+  habilidades?: string[];
 }
 
 const Dashboard = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [loadingProfile, setLoadingProfile] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -24,20 +23,16 @@ const Dashboard = () => {
   }, [authLoading, user, navigate]);
 
   useEffect(() => {
-    if (!user) return;
-    const fetchProfile = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("name, profile_type")
-        .eq("user_id", user.id)
-        .single();
-      setProfile(data as Profile | null);
-      setLoadingProfile(false);
-    };
-    fetchProfile();
+    if (user) {
+      setProfile({
+        name: user.name,
+        profileType: user.profileType,
+        habilidades: (user as any).habilidades || [],
+      });
+    }
   }, [user]);
 
-  if (authLoading || loadingProfile) {
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -45,9 +40,13 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) return null;
+  if (!user || !profile) return null;
 
-  const isEmpresa = profile?.profile_type === "empresa";
+  const isEmpresa = profile.profileType === "empresa";
+
+  const handleProfileUpdate = (updated: Profile) => {
+    setProfile(updated);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,29 +62,26 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-12">
-        <Card className="max-w-lg mx-auto shadow-lg">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent">
-              {isEmpresa ? (
-                <Building2 className="h-8 w-8 text-accent-foreground" />
-              ) : (
-                <GraduationCap className="h-8 w-8 text-accent-foreground" />
-              )}
-            </div>
-            <CardTitle className="text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
-              Bem-vindo, {profile?.name || "Usuário"}!
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-2">
-            <p className="text-muted-foreground">
-              Perfil: <span className="font-medium text-foreground capitalize">{profile?.profile_type}</span>
+      <main className="container mx-auto px-4 py-10 max-w-2xl space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent shrink-0">
+            {isEmpresa ? (
+              <Building2 className="h-7 w-7 text-accent-foreground" />
+            ) : (
+              <GraduationCap className="h-7 w-7 text-accent-foreground" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold" style={{ fontFamily: "var(--font-heading)" }}>
+              Bem-vindo, {profile.name}!
+            </h2>
+            <p className="text-sm text-muted-foreground capitalize">
+              {profile.profileType} · {user.email}
             </p>
-            <p className="text-muted-foreground">
-              E-mail: <span className="font-medium text-foreground">{user.email}</span>
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        <ProfileEditor userId={user.id} profile={profile} onSave={handleProfileUpdate} />
       </main>
     </div>
   );
