@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Building2, GraduationCap, LogOut, Loader2 } from "lucide-react";
 import ProfileEditor from "@/components/ProfileEditor";
+import PortfolioEditor from "@/components/PortfolioEditor";
 
 interface Profile {
   name: string;
@@ -27,7 +28,7 @@ const Dashboard = () => {
       setProfile({
         name: user.name,
         profileType: user.profileType,
-        habilidades: (user as any).habilidades || [],
+        habilidades: user.habilidades || [],
       });
     }
   }, [user]);
@@ -82,6 +83,9 @@ const Dashboard = () => {
         </div>
 
         <ProfileEditor userId={user.id} profile={profile} onSave={handleProfileUpdate} />
+
+        {/* Portfólio só aparece para estudantes */}
+        {!isEmpresa && <PortfolioEditor userId={user.id} />}
       </main>
     </div>
   );

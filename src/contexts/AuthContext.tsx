@@ -5,6 +5,7 @@ interface User {
   email: string;
   name: string;
   profileType: "empresa" | "estudante";
+  habilidades?: string[];
 }
 
 interface AuthContextType {
@@ -34,6 +35,7 @@ interface StoredUser {
   passwordHash: string;
   name: string;
   profileType: "empresa" | "estudante";
+  habilidades?: string[];
 }
 
 const hashPassword = (password: string): string => {
@@ -93,6 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email: user.email,
       name: user.name,
       profileType: user.profileType,
+      habilidades: user.habilidades || [],
     };
 
     localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
