@@ -70,13 +70,9 @@ const ProfileEditor = ({ userId, profile, onSave }: ProfileEditorProps) => {
     setSaving(true);
 
     try {
-      // 1. O UserService cuida de ir no "banco de dados" (que hoje é o localStorage)
       UserService.updateUserProfile(userId, { name: name.trim(), habilidades });
       
-      // 2. Atualizamos a sessão no Contexto da aplicação, se o usuário estiver logado
       if (user) {
-        // ATENÇÃO: Adicione a função updateSession no seu src/contexts/AuthContext.tsx 
-        // caso ainda não tenha feito o passo anterior!
         if (updateSession) {
           updateSession({
             ...user,
