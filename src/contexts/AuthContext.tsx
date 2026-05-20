@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  profileType: "empresa" | "estudante";
-  habilidades?: string[];
-}
+import { User, StoredUser } from "../types/user";
+import { hashPassword, generateId } from "../utils/crypto";
+import { UserService } from "../services/UserService";
 
 interface AuthContextType {
   user: User | null;
@@ -14,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (email: string, password: string, name: string, profileType: "empresa" | "estudante") => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  updateSession: (user: User) => void; // Nova função para o ProfileEditor usar
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,44 +18,12 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => ({}),
   signUp: async () => ({}),
   signOut: async () => {},
+  updateSession: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-const STORAGE_KEY = "squadfinder_users";
 const SESSION_KEY = "squadfinder_session";
-
-interface StoredUser {
-  id: string;
-  email: string;
-  passwordHash: string;
-  name: string;
-  profileType: "empresa" | "estudante";
-  habilidades?: string[];
-}
-
-const hashPassword = (password: string): string => {
-  let hash = 0;
-  for (let i = 0; i < password.length; i++) {
-    const char = password.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-};
-
-const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-};
-
-const getUsers = (): StoredUser[] => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
-};
-
-const saveUsers = (users: StoredUser[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -72,68 +36,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const sessionData = localStorage.getItem(SESSION_KEY);
     if (sessionData) {
-      const userData = JSON.parse(sessionData);
-      setUser(userData);
+      setUser(JSON.parse(sessionData));
     }
     setLoading(false);
   }, []);
 
+  const updateSession = (updatedUser: User) => {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
   const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
-    const users = getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const user = UserService.findByEmail(email);
     
-    if (!user) {
-      return { error: "Usuário não encontrado" };
-    }
-    
-    if (user.passwordHash !== hashPassword(password)) {
-      return { error: "Senha incorreta" };
-    }
+    if (!user) return { error: "Usuário não encontrado" };
+    if (user.passwordHash !== hashPassword(password)) return { error: "Senha incorreta" };
 
     const sessionUser: User = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      profileType: user.profileType,
-      habilidades: user.habilidades || [],
+      id: user.id, email: user.email, name: user.name, 
+      profileType: user.profileType, habilidades: user.habilidades || [],
     };
 
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    setUser(sessionUser);
+    updateSession(sessionUser);
     return {};
   };
 
-  const signUp = async (
-    email: string, 
-    password: string, 
-    name: string, 
-    profileType: "empresa" | "estudante"
-  ): Promise<{ error?: string }> => {
-    const users = getUsers();
-    
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+  const signUp = async (email: string, password: string, name: string, profileType: "empresa" | "estudante"): Promise<{ error?: string }> => {
+    if (UserService.findByEmail(email)) {
       return { error: "Este e-mail já está cadastrado" };
     }
 
     const newUser: StoredUser = {
-      id: generateId(),
-      email: email.toLowerCase(),
-      passwordHash: hashPassword(password),
-      name,
-      profileType,
+      id: generateId(), email: email.toLowerCase(), passwordHash: hashPassword(password),
+      name, profileType, habilidades: []
     };
 
-    saveUsers([...users, newUser]);
+    const users = UserService.getUsers();
+    UserService.saveUsers([...users, newUser]);
 
     const sessionUser: User = {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      profileType: newUser.profileType,
+      id: newUser.id, email: newUser.email, name: newUser.name, 
+      profileType: newUser.profileType, habilidades: []
     };
 
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionUser));
-    setUser(sessionUser);
+    updateSession(sessionUser);
     return {};
   };
 
@@ -143,7 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateSession }}>
       {children}
     </AuthContext.Provider>
   );

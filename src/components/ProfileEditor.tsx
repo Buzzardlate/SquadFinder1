@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Pencil, Check, X, Plus } from "lucide-react";
 
+// Importamos o UserService que criamos para gerenciar os dados
+import { UserService } from "@/services/UserService";
+
 interface Profile {
   name: string;
   profileType: "empresa" | "estudante";
@@ -20,10 +23,10 @@ interface ProfileEditorProps {
   onSave: (updated: Profile) => void;
 }
 
-const STORAGE_KEY = "squadfinder_users";
-
 const ProfileEditor = ({ userId, profile, onSave }: ProfileEditorProps) => {
-  const { user } = useAuth();
+  // Agora pegamos também a função updateSession do nosso contexto
+  const { user, updateSession } = useAuth(); 
+  
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile.name);
   const [habilidades, setHabilidades] = useState<string[]>(profile.habilidades || []);
@@ -67,20 +70,19 @@ const ProfileEditor = ({ userId, profile, onSave }: ProfileEditorProps) => {
     setSaving(true);
 
     try {
-      const users = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      const userIndex = users.findIndex((u: any) => u.id === userId);
+      // 1. O UserService cuida de ir no "banco de dados" (que hoje é o localStorage)
+      UserService.updateUserProfile(userId, { name: name.trim(), habilidades });
       
-      if (userIndex !== -1) {
-        users[userIndex].name = name.trim();
-        users[userIndex].habilidades = habilidades;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-        
-        if (user) {
-          localStorage.setItem("squadfinder_session", JSON.stringify({
+      // 2. Atualizamos a sessão no Contexto da aplicação, se o usuário estiver logado
+      if (user) {
+        // ATENÇÃO: Adicione a função updateSession no seu src/contexts/AuthContext.tsx 
+        // caso ainda não tenha feito o passo anterior!
+        if (updateSession) {
+          updateSession({
             ...user,
             name: name.trim(),
             habilidades,
-          }));
+          });
         }
       }
 
